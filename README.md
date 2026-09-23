@@ -1,169 +1,73 @@
 # Feedants – Competition Details
 
-This is the competition details screen from the Feedants design, built as a working feature. The React Native (Expo) app talks to an Express API backed by MongoDB. Every value on the screen comes from the API: prize pool, spots left, dates, countdown, judge, rewards, winners and the state of the bottom button. Registration takes an entry fee through Razorpay, and registered users can upload their video entry.
+The competition details screen from the Feedants design, built as a working feature: a React Native (Expo) app in `mobile/` and an Express + MongoDB API in `backend/`. Everything on the screen comes from the API, including spots left, dates, the countdown and the state of the bottom button. Registration takes the entry fee through Razorpay (test mode), and registered users can upload a video entry.
 
-```
-backend/   Express + TypeScript + Mongoose API
-mobile/    Expo (SDK 57) + TypeScript app using expo-router
-render.yaml  Render blueprint for the API
-```
+## Running it
 
-## Running it locally
+You need Node 22 LTS (or 20.19.4+) and npm. To use the app, install Expo Go on a phone, or use an Android emulator.
 
-You need Node 20 or newer and a MongoDB database. The database must be a replica set, because registration uses transactions. Atlas (including the free tier) is fine.
-
-### Backend
-
-```bash
-cd backend
-cp .env.example .env      # fill in MONGODB_URI and JWT_SECRET at minimum
-npm install
-npm run seed              # creates the competitions, testimonials and a demo user
-npm run dev               # http://localhost:4000
-```
-
-The seed can be run again safely. It updates the competitions in place and recalculates `bookedCount` from the existing registrations. `npm run seed -- --reset` also clears all registrations. The dates are set relative to when you seed, so after a few days you should seed again to get a live countdown.
-
-Demo login: `demo@feedants.com` / `demo1234`
-
-Tests run against an in-memory MongoDB replica set, so no database setup is needed:
-
-```bash
-npm test
-npm run typecheck
-npm run lint
-```
-
-### Mobile
+**1. App only, using the hosted API (quickest)**
 
 ```bash
 cd mobile
-cp .env.example .env      # set EXPO_PUBLIC_API_URL
 npm install
+echo "EXPO_PUBLIC_API_URL=https://blaccsckull-assignment.onrender.com" > .env
 npx expo start
 ```
 
-Scan the QR code with Expo Go, or press `a` for an Android emulator or `w` for the browser. On a physical phone, `EXPO_PUBLIC_API_URL` must be your computer's LAN address (for example `http://192.168.1.20:4000`) or the Render URL, not `localhost`. Restart Expo after changing `.env`.
+Scan the QR code with Expo Go on Android or with the Camera app on iOS. The API runs on Render's free tier, so the first request can take up to a minute while it wakes up.
 
-The main screen is under Competitions → Feedants Classical Dance.
+Log in with `demo@feedants.com` / `demo1234`, or sign up. Then open Competitions → Feedants Classical Dance. To test a payment, use the UPI ID `success@razorpay` or card `4111 1111 1111 1111` with any future expiry and any CVV.
 
-## Environment variables
+**2. Backend locally as well**
 
-Backend (`backend/.env`):
+The API needs a MongoDB replica set, because registration uses transactions. A free Atlas cluster works; a plain standalone `mongod` does not.
 
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `MONGODB_URI` | yes | Must point at a replica set. URL-encode special characters in the password (`@` becomes `%40`). |
-| `JWT_SECRET` | yes | At least 16 characters. |
-| `JWT_EXPIRES_IN` | no | Defaults to `7d`. |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | for paid entries | Test mode keys. Without them, paid registration returns `503 PAYMENTS_UNAVAILABLE`. Free competitions still work. |
-| `RAZORPAY_WEBHOOK_SECRET` | recommended | The secret you set when creating the webhook in the Razorpay dashboard. |
-| `PUBLIC_BASE_URL` | no | The public URL of the API. It is used to build image, checkout and referral links. On Render it defaults to `RENDER_EXTERNAL_URL`, and locally to `http://localhost:4000`. |
-| `CORS_ORIGINS` | no | A comma-separated list, or `*`. |
-| `HOLD_MINUTES` | no | How long an unpaid registration holds a spot. Defaults to 10. |
-| `REFERRAL_REWARD` | no | Credit per referred signup, in paise. Defaults to 1000 (₹10). |
-| `PORT` | no | Defaults to 4000. Render sets it automatically. |
+```bash
+cd backend
+npm install
+cp .env.example .env   # set MONGODB_URI, JWT_SECRET and the Razorpay test keys
+npm run seed           # sample competitions, testimonials and the demo user
+npm run dev            # http://localhost:4000
+```
 
-Mobile (`mobile/.env`): only `EXPO_PUBLIC_API_URL`.
+Then follow step 1, setting `EXPO_PUBLIC_API_URL` to `http://<your computer's LAN IP>:4000`. A phone can't reach `localhost`.
 
-## Razorpay setup
+**Tests:** run `cd backend && npm test`. They use an in-memory MongoDB, which downloads a `mongod` binary the first time.
 
-1. In the Razorpay dashboard, switch to Test mode and generate API keys. Put them in `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`.
-2. Add a webhook at `<API URL>/api/v1/webhooks/razorpay` for the `payment.captured` and `order.paid` events. Use its secret as `RAZORPAY_WEBHOOK_SECRET`.
-3. In the checkout, use one of Razorpay's test cards or the test UPI ID `success@razorpay`.
+## Environment
 
-The native Razorpay SDK doesn't run in Expo Go. Instead, the API serves a small page at `/checkout` that loads Razorpay's `checkout.js`, and the app opens that page in a WebView. The page passes the result back with `postMessage`, the app sends it to `/registrations/:id/verify`, and the server checks the HMAC signature before confirming the registration. The web build calls `checkout.js` directly.
+- `backend/.env`:
+  - `MONGODB_URI` and `JWT_SECRET` (at least 16 characters) are required.
+  - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` are needed for paid entries.
+  - Optional: `PUBLIC_BASE_URL`, `CORS_ORIGINS`, `HOLD_MINUTES` (default 10) and `REFERRAL_REWARD` (in paise, default 1000).
+- `mobile/.env`: `EXPO_PUBLIC_API_URL`.
 
-## Deploying the API to Render
-
-The repo includes `render.yaml`. In Render, choose New → Blueprint and point it at the repository. Render will ask for `MONGODB_URI` and the Razorpay keys, and it generates `JWT_SECRET` itself. To set the service up by hand instead, use root directory `backend`, build command `npm ci --include=dev && npm run build`, start command `npm start` and health check path `/health`.
-
-In Atlas, allow connections from Render: add `0.0.0.0/0` under Network Access, or add Render's outbound IPs on a paid plan. To seed the production database, run `npm run seed` from your machine with `MONGODB_URI` pointing at it.
-
-## API
-
-Everything is under `/api/v1`. Errors always have the shape `{ "error": { "code", "message" } }`.
-
-| Method | Path | Auth | |
-| --- | --- | --- | --- |
-| POST | `/auth/signup` | – | `name, email, password, referralCode?` |
-| POST | `/auth/login` | – | |
-| GET | `/auth/me` | yes | |
-| GET | `/competitions?lang=en\|hi` | – | List |
-| GET | `/competitions/:slug?lang=en\|hi` | optional | Details, lifecycle and the viewer's registration |
-| GET | `/competitions/:slug/availability` | – | Spots and phase only, for clients that just need the counter |
-| POST | `/competitions/:slug/registrations` | yes | Reserves a spot and returns a Razorpay order |
-| GET | `/registrations/:id` | owner | |
-| POST | `/registrations/:id/verify` | owner | Razorpay handler response |
-| POST | `/registrations/:id/submission` | owner | multipart `file`, video only, up to 100 MB |
-| GET | `/registrations/:id/submission/file` | owner | Streams the uploaded video |
-| GET | `/testimonials` | – | |
-| GET | `/referrals/me` | yes | Code, link, signups and earnings |
-| POST | `/webhooks/razorpay` | signature | |
-
-Other routes: `GET /health`, `GET /checkout` and `GET /r/:code` (the referral landing page).
-
-## How registration works
-
-A competition document stores `capacity` and `bookedCount`. Registering runs one transaction that does two things:
-
-1. `updateOne({ _id, status: 'published', registrationClosesAt > now, $expr: bookedCount < capacity }, { $inc: { bookedCount: 1 } })`
-2. inserts a `pending_payment` registration with `holdExpiresAt = now + HOLD_MINUTES`
-
-The conditional increment is what prevents overbooking. When many users race for the last spot, MongoDB lets only one of them match the filter, and the rest get `409 SOLD_OUT`. A partial unique index on `(competition, user)` covers active statuses, so a double tap can't create two entries. There is a test that fires 50 registrations at a 20-spot competition and checks that exactly 20 succeed.
-
-The Razorpay order is created after the transaction commits, so a slow gateway never holds a lock on the competition document. If creating the order fails, the hold is released immediately.
-
-A payment is confirmed either by the app's verify call or by the webhook, whichever arrives first. Both go through the same idempotent function, so duplicates are harmless.
-
-Unpaid holds are released by a sweeper that runs every minute inside the API process. It moves the registration to `expired` and gives the spot back, and it only decrements the counter when its own status update matched, so it is safe with several API instances running. If a payment arrives after its hold expired, the server tries to take a spot again. If the competition has filled up in the meantime, the registration becomes `refund_due` and the app says so.
-
-## Screen states
-
-The server works out the competition phase from the schedule (`upcoming`, `registration_open`, `awaiting_submissions`, `submission_open`, `judging`, `results_announced` or `cancelled`) along with the next deadline. The app combines that with the viewer's registration to decide what the bottom button does. The logic is in `mobile/src/lib/cta.ts`:
-
-- logged out: "Log in to register"
-- registration open: "Register Now · ₹99". The same button reads "Complete Payment" while a hold is active.
-- full: "All spots booked"
-- not open yet, or closed: disabled, with the relevant date
-- registered, before submissions open: disabled, "Opens on …"
-- registered, submissions open: "Upload Submission", and "Replace Submission" once a file has been uploaded
-- after submissions close: "Results on …", then "Results announced"
-- `refund_due`: explains that the refund is being processed
-
-The countdown uses the server's clock rather than the phone's. Every response includes `serverTime`, and the app applies the offset. The page doesn't reload by itself: no polling, and no refetch on focus or when a deadline passes. Data reloads when you pull down to refresh, and right after your own actions (logging in, registering, paying or uploading), so the button always reflects what you just did. If a deadline passes while the page is open, the server still enforces it, and any action returns a clear error and reloads the page.
-
-The ENG/हिंदी toggle switches the UI strings and requests content in the chosen language from the API. Competition text is stored as `{ en, hi }` and falls back to English.
-
-## Assumptions
-
-- The screen shows one competition, identified by slug. The other tabs (Home, Explore, Create, Profile) are minimal and exist so the navigation works.
-- "Registered" means the entry fee has been paid. An unpaid hold is shown as "Payment pending".
-- A registration and its submission belong together, so a user has one entry per competition. Re-uploading replaces the previous video until the deadline.
-- The design shows submissions opening before registration closes, so the two windows are allowed to overlap.
-- Referral credit is paid when someone signs up with your code. The design says "earn more discount", but spending that credit at checkout is not built yet (see below).
-- The judge and winner photos are cropped from the design image, and the videos are a public sample clip. The fourth winner's name is cut off in the design, so "Ishita Chopra" is a guess.
-- All amounts are stored in paise as integers.
+To deploy on Render, use `render.yaml`. Its settings are root directory `backend`, build `npm ci --include=dev && npm run build`, start `npm start`, and the Razorpay webhook goes to `/api/v1/webhooks/razorpay`.
 
 ## Decisions and trade-offs
 
-- **A counter on the competition document instead of counting registrations.** Reads stay O(1) and the capacity check is a single atomic update. The cost is that the counter can drift if data is edited by hand, so the seed script recalculates it, and a scheduled reconciliation job would be the next step.
-- **Transactions.** These need a replica set, but they keep the counter and the registration consistent. Every competition shares one hot document, so under very heavy contention transactions retry. Once all spots are taken the filter no longer matches, and extra requests fail fast without writing anything.
-- **Holding a spot during payment.** This stops users from paying for a spot that was taken while they were in checkout. The trade-off is that abandoned checkouts block a spot for up to `HOLD_MINUTES`.
-- **A WebView checkout instead of `react-native-razorpay`.** The app keeps working in Expo Go. A production build would probably use the native SDK for a better UPI intent experience.
-- **Videos in GridFS.** Render's disk is ephemeral and I didn't want to add another service for the assignment, so uploads stream straight into MongoDB without being buffered in memory. For real volume, object storage with pre-signed uploads (S3 or R2) is the right choice.
-- **Manual refresh instead of live updates.** The page only reloads when you pull down to refresh, so it never changes while you're reading it, and idle viewers put no load on the API. The downside is that the spots count can be out of date until you refresh, but the server is always the source of truth when you register. For clients that only need the counter, there is a small availability endpoint that sends `Cache-Control: public, max-age=5`, so a CDN can absorb most of that traffic.
-- **A single JWT with no refresh token.** This is enough for the assignment. A production app would have short-lived access tokens and refresh rotation.
-- **The sweeper runs inside the API process.** On Render's free tier the instance sleeps when idle, so expired holds are released after it wakes up. A user's own stale hold is also released as soon as they try to register again.
+- **No overbooking:** spots are taken with one conditional update (`bookedCount < capacity`) inside a transaction. A test has 50 users race for 20 spots, and exactly 20 get one.
+- **Holds during payment:** an unpaid spot is held for 10 minutes and then released by a sweeper. A payment that arrives after its spot has gone is marked `refund_due`.
+- **Payment confirmation:** it happens by a signature check in the app flow and, as a backup, through the webhook. Both are idempotent, so a duplicate does nothing.
+- **Razorpay in a WebView:** checkout runs in a WebView page served by the API, so the app works in Expo Go without the native SDK.
+- **Uploads in MongoDB:** videos go to GridFS, because Render's disk is wiped on every restart. At real scale they belong in S3 or R2.
+- **Manual refresh:** the page never reloads on its own; you pull down to refresh. The spots count can be out of date until then, but the server always has the final say.
+- **Server time for deadlines:** the countdown uses the server's clock, and the server decides the phase.
 
-## What I'd do next for production
+## Assumptions
 
-- Move uploads to S3/R2 with pre-signed URLs and background transcoding, and validate video duration on the server.
-- Apply referral credit as a discount on the entry fee.
-- Issue refunds for `refund_due` entries automatically through the Razorpay refunds API.
-- Run holds and the sweeper as a separate worker or queue (for example BullMQ on Redis), and add a nightly job that reconciles `bookedCount`.
-- Optionally push spot updates over server-sent events, shown as a "spots changed, pull to refresh" hint rather than changing the page underneath the user.
-- Add refresh tokens, email verification and password reset.
-- Add an admin API or panel to create competitions and announce results. Right now that happens through the seed script.
-- Add a Redis-backed rate limiter so limits are shared across instances, plus structured metrics and alerting.
-- Add end-to-end tests for the app with Maestro or Detox.
+- "Registered" means the fee has been paid.
+- A user has one entry per competition, and re-uploading replaces it.
+- Registration and submission windows can overlap, as they do in the design.
+- The images are cropped from the design, and the videos are a sample clip.
+
+## Next steps for production
+
+- Presigned uploads to object storage.
+- Automatic refunds for `refund_due` entries.
+- Referral credit applied at checkout.
+- Holds processed by a queue or worker instead of inside the API process.
+- Refresh tokens.
+- An admin panel for creating competitions.
+- End-to-end tests for the app.
