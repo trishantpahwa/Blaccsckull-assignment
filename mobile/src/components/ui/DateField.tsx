@@ -15,7 +15,7 @@ interface Props {
 }
 
 export function DateField({ label, value, onChange, error }: Props) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [iosOpen, setIosOpen] = useState(false);
   const [draft, setDraft] = useState(value);
 
@@ -55,8 +55,22 @@ export function DateField({ label, value, onChange, error }: Props) {
 
       <Modal visible={iosOpen} transparent animationType="fade" onRequestClose={() => setIosOpen(false)}>
         <View style={styles.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIosOpen(false)} accessibilityLabel={t.close} />
           <View style={styles.sheet}>
-            <DateTimePicker value={draft} mode="datetime" display="spinner" onValueChange={(_e, date) => setDraft(date)} />
+            <AppText weight="semibold" size={16} style={styles.sheetTitle}>
+              {label}
+            </AppText>
+            {/* The sheet is always light, so the wheel must not follow the phone's dark mode. */}
+            <DateTimePicker
+              value={draft}
+              mode="datetime"
+              display="spinner"
+              themeVariant="light"
+              textColor={colors.text}
+              accentColor={colors.primary}
+              locale={lang === 'hi' ? 'hi-IN' : 'en-IN'}
+              onValueChange={(_e, date) => setDraft(date)}
+            />
             <Pressable
               style={styles.done}
               onPress={() => {
@@ -91,6 +105,7 @@ const styles = StyleSheet.create({
   },
   inputError: { borderColor: colors.danger },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheetTitle: { textAlign: 'center', marginBottom: 4 },
   sheet: { backgroundColor: colors.white, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: 16, paddingBottom: 32 },
   done: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
 });
