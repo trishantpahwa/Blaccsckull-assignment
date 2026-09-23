@@ -102,6 +102,7 @@ export const en = {
   },
 
   payment: {
+    title: 'Secure payment',
     confirming: 'Confirming your payment…',
     success: 'You are registered! Good luck.',
     failed: 'Payment failed. Your spot stays held for a few minutes, try again.',
