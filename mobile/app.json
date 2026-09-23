@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Feedants",
+    "slug": "feedants",
+    "version": "1.0.0",
+    "scheme": "feedants",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.feedants.app"
+    },
+    "android": {
+      "package": "com.feedants.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4F4",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single"
+    },
+    "plugins": ["expo-router", "expo-secure-store", "expo-video", "expo-font"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

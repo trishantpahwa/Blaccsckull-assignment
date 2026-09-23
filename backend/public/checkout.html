@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feedants Checkout</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #f4f8f8; color: #12302f; display: grid; place-items: center; min-height: 100vh; }
+    p { font-size: 15px; }
+  </style>
+</head>
+<body>
+  <p id="status">Opening secure payment…</p>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var statusEl = document.getElementById('status');
+
+      function send(message) {
+        var data = JSON.stringify(message);
+        if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(data);
+        else if (window.parent !== window) window.parent.postMessage(data, '*');
+      }
+
+      if (typeof Razorpay === 'undefined') {
+        statusEl.textContent = 'Could not load the payment page. Check your connection and try again.';
+        send({ type: 'error', message: 'Razorpay checkout failed to load' });
+        return;
+      }
+
+      var rzp = new Razorpay({
+        key: params.get('key'),
+        order_id: params.get('order_id'),
+        amount: params.get('amount'),
+        currency: params.get('currency') || 'INR',
+        name: 'Feedants',
+        description: params.get('description') || 'Competition entry fee',
+        prefill: { name: params.get('name') || '', email: params.get('email') || '' },
+        theme: { color: '#0E6E6E' },
+        handler: function (response) {
+          statusEl.textContent = 'Payment received, confirming…';
+          send({ type: 'success', payload: response });
+        },
+        modal: {
+          ondismiss: function () {
+            send({ type: 'dismissed' });
+          },
+        },
+      });
+
+      rzp.on('payment.failed', function (response) {
+        send({ type: 'failed', message: (response.error && response.error.description) || 'Payment failed' });
+      });
+
+      rzp.open();
+    })();
+  </script>
+</body>
+</html>
