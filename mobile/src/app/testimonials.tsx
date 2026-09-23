@@ -16,7 +16,7 @@ export default function TestimonialsScreen() {
   const query = useQuery({ queryKey: ['testimonials', lang], queryFn: () => api.testimonials(lang) });
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <ScreenHeader />
       <AppText weight="semibold" size={20} style={styles.title}>
         {t.testimonials.title}

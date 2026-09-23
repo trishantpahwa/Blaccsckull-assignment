@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Image, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { colors, fonts, radius } from '@/theme';
@@ -8,6 +9,9 @@ import { colors, fonts, radius } from '@/theme';
 export default function TabsLayout() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  // Keep the bar clear of the home indicator / gesture bar; a fixed height would swallow the inset.
+  const bottomInset = Math.max(insets.bottom, 8);
 
   return (
     <Tabs
@@ -16,7 +20,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSubtle,
         tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 12 },
-        tabBarStyle: { borderTopColor: colors.border, height: 64, paddingTop: 6 },
+        tabBarStyle: { borderTopColor: colors.border, height: 56 + bottomInset, paddingTop: 6, paddingBottom: bottomInset },
       }}
     >
       <Tabs.Screen
