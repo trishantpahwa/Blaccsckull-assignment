@@ -91,7 +91,7 @@ Everything is under `/api/v1`. Errors always have the shape `{ "error": { "code"
 | GET | `/auth/me` | yes | |
 | GET | `/competitions?lang=en\|hi` | – | List |
 | GET | `/competitions/:slug?lang=en\|hi` | optional | Details, lifecycle and the viewer's registration |
-| GET | `/competitions/:slug/availability` | – | Spots and phase. The app polls this. |
+| GET | `/competitions/:slug/availability` | – | Spots and phase only, for clients that just need the counter |
 | POST | `/competitions/:slug/registrations` | yes | Reserves a spot and returns a Razorpay order |
 | GET | `/registrations/:id` | owner | |
 | POST | `/registrations/:id/verify` | owner | Razorpay handler response |
@@ -131,7 +131,7 @@ The server works out the competition phase from the schedule (`upcoming`, `regis
 - after submissions close: "Results on …", then "Results announced"
 - `refund_due`: explains that the refund is being processed
 
-The countdown uses the server's clock rather than the phone's. Every response includes `serverTime`, and the app applies the offset. When a deadline passes, the app refetches so the phase changes without a manual refresh. The spots counter is refreshed every 15 seconds from the lightweight availability endpoint, and again whenever the screen gains focus.
+The countdown uses the server's clock rather than the phone's. Every response includes `serverTime`, and the app applies the offset. The page doesn't reload by itself: no polling, and no refetch on focus or when a deadline passes. Data reloads when you pull down to refresh, and right after your own actions (logging in, registering, paying or uploading), so the button always reflects what you just did. If a deadline passes while the page is open, the server still enforces it, and any action returns a clear error and reloads the page.
 
 The ENG/हिंदी toggle switches the UI strings and requests content in the chosen language from the API. Competition text is stored as `{ en, hi }` and falls back to English.
 
@@ -152,7 +152,7 @@ The ENG/हिंदी toggle switches the UI strings and requests content in t
 - **Holding a spot during payment.** This stops users from paying for a spot that was taken while they were in checkout. The trade-off is that abandoned checkouts block a spot for up to `HOLD_MINUTES`.
 - **A WebView checkout instead of `react-native-razorpay`.** The app keeps working in Expo Go. A production build would probably use the native SDK for a better UPI intent experience.
 - **Videos in GridFS.** Render's disk is ephemeral and I didn't want to add another service for the assignment, so uploads stream straight into MongoDB without being buffered in memory. For real volume, object storage with pre-signed uploads (S3 or R2) is the right choice.
-- **Polling instead of websockets for live spots.** It is simpler and works behind any proxy. The availability endpoint is small and sends `Cache-Control: public, max-age=5`, so a CDN can absorb most of the traffic.
+- **Manual refresh instead of live updates.** The page only reloads when you pull down to refresh, so it never changes while you're reading it, and idle viewers put no load on the API. The downside is that the spots count can be out of date until you refresh, but the server is always the source of truth when you register. For clients that only need the counter, there is a small availability endpoint that sends `Cache-Control: public, max-age=5`, so a CDN can absorb most of that traffic.
 - **A single JWT with no refresh token.** This is enough for the assignment. A production app would have short-lived access tokens and refresh rotation.
 - **The sweeper runs inside the API process.** On Render's free tier the instance sleeps when idle, so expired holds are released after it wakes up. A user's own stale hold is also released as soon as they try to register again.
 
@@ -162,7 +162,7 @@ The ENG/हिंदी toggle switches the UI strings and requests content in t
 - Apply referral credit as a discount on the entry fee.
 - Issue refunds for `refund_due` entries automatically through the Razorpay refunds API.
 - Run holds and the sweeper as a separate worker or queue (for example BullMQ on Redis), and add a nightly job that reconciles `bookedCount`.
-- Push spot updates over server-sent events or websockets instead of polling.
+- Optionally push spot updates over server-sent events, shown as a "spots changed, pull to refresh" hint rather than changing the page underneath the user.
 - Add refresh tokens, email verification and password reset.
 - Add an admin API or panel to create competitions and announce results. Right now that happens through the seed script.
 - Add a Redis-backed rate limiter so limits are shared across instances, plus structured metrics and alerting.

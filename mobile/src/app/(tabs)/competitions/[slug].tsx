@@ -1,5 +1,5 @@
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdSlot } from '@/components/competition/AdSlot';
@@ -40,13 +40,6 @@ export default function CompetitionDetailsScreen() {
   const registration = query.data?.viewer?.registration ?? null;
   const flow = useRegistrationFlow(slug, registration?.id ?? null);
 
-  // Coming back to this screen (e.g. after logging in) should show fresh spots and state.
-  useFocusEffect(
-    useCallback(() => {
-      refresh();
-    }, [refresh]),
-  );
-
   const prefill = useMemo(() => ({ name: user?.name, email: user?.email }), [user]);
 
   if (query.isPending) return <LoadingState />;
@@ -77,7 +70,7 @@ export default function CompetitionDetailsScreen() {
       >
         <CompetitionHeader competition={competition} registration={registration} />
         <JudgeCard judge={competition.judge} onPlayIntro={setVideoUrl} />
-        <CountdownBanner lifecycle={competition.lifecycle} spotsLeft={competition.spotsLeft} onDeadlinePassed={refresh} />
+        <CountdownBanner lifecycle={competition.lifecycle} spotsLeft={competition.spotsLeft} />
         <ImportantDates schedule={competition.schedule} />
         <PreviousWinners winners={competition.previousWinners} onPlay={setVideoUrl} />
         <InfoTabs competition={competition} />

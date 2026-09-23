@@ -1,23 +1,13 @@
 import { Jost_400Regular, Jost_500Medium, Jost_600SemiBold, Jost_700Bold, useFonts } from '@expo-google-fonts/jost';
-import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { AppState, Platform } from 'react-native';
+import { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ApiError } from '@/api/client';
 import { ToastProvider } from '@/components/ui/Toast';
 import { AuthProvider } from '@/context/AuthContext';
 import { LanguageProvider } from '@/context/LanguageContext';
-
-// React Query only knows about browser focus; tell it when the app comes back to the foreground.
-function useAppStateFocus() {
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    const sub = AppState.addEventListener('change', (status) => focusManager.setFocused(status === 'active'));
-    return () => sub.remove();
-  }, []);
-}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({ Jost_400Regular, Jost_500Medium, Jost_600SemiBold, Jost_700Bold });
@@ -26,14 +16,15 @@ export default function RootLayout() {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 10_000,
+            // Data only reloads when the user pulls to refresh or after their own actions.
+            staleTime: Infinity,
+            refetchOnWindowFocus: false,
+            refetchOnReconnect: false,
             retry: (count, err) => !(err instanceof ApiError && err.status >= 400 && err.status < 500) && count < 2,
           },
         },
       }),
   );
-  useAppStateFocus();
-
   if (!fontsLoaded) return null;
 
   return (

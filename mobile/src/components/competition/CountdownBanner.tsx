@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { Lifecycle } from '@/api/types';
 import { AppText } from '@/components/ui/AppText';
@@ -13,23 +12,13 @@ const HURRY_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 interface Props {
   lifecycle: Lifecycle;
   spotsLeft: number;
-  onDeadlinePassed: () => void;
 }
 
-export function CountdownBanner({ lifecycle, spotsLeft, onDeadlinePassed }: Props) {
+export function CountdownBanner({ lifecycle, spotsLeft }: Props) {
   const { t } = useLanguage();
   const now = useNow();
   const deadline = lifecycle.nextDeadline;
   const remaining = deadline ? new Date(deadline.at).getTime() - now : 0;
-
-  // Refetch once when the deadline passes so the phase and CTA move on without a manual refresh.
-  const firedFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (deadline && remaining <= 0 && firedFor.current !== deadline.at) {
-      firedFor.current = deadline.at;
-      onDeadlinePassed();
-    }
-  }, [deadline, remaining, onDeadlinePassed]);
 
   if (!deadline) {
     const message = lifecycle.phase === 'cancelled' ? t.competitionCancelled : t.resultsAnnounced;

@@ -1,6 +1,5 @@
 import { request } from './client';
 import type {
-  Availability,
   CompetitionResponse,
   CompetitionSummary,
   PaymentOrder,
@@ -22,8 +21,6 @@ export const api = {
   competitions: (lang: Lang) =>
     request<{ serverTime: string; competitions: CompetitionSummary[] }>(`/competitions?lang=${lang}`),
   competition: (slug: string, lang: Lang) => request<CompetitionResponse>(`/competitions/${slug}?lang=${lang}`),
-  availability: (slug: string) =>
-    request<Availability & { serverTime: string }>(`/competitions/${slug}/availability`),
 
   register: (slug: string) =>
     request<{ registration: Registration; payment: PaymentOrder | null }>(`/competitions/${slug}/registrations`, {
