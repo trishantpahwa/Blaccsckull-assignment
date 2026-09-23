@@ -125,3 +125,17 @@ export interface RazorpaySuccess {
   razorpay_payment_id: string;
   razorpay_signature: string;
 }
+
+export interface NewCompetition {
+  title: string;
+  category: string;
+  about: string;
+  entryFee: number;
+  capacity: number;
+  rewards: number[];
+  givesCertificate: boolean;
+  judge: { name: string; title: string; experienceYears?: number };
+  schedule: CompetitionDetail['schedule'];
+  judgingParameters: string[];
+  rules: string[];
+}

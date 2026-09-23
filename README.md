@@ -1,6 +1,6 @@
 # Feedants – Competition Details
 
-The competition details screen from the Feedants design, built as a working feature: a React Native (Expo) app in `mobile/` and an Express + MongoDB API in `backend/`. Everything on the screen comes from the API, including spots left, dates, the countdown and the state of the bottom button. Registration takes the entry fee through Razorpay (test mode), and registered users can upload a video entry.
+The competition details screen from the Feedants design, built as a working feature: a React Native (Expo) app in `mobile/` and an Express + MongoDB API in `backend/`. Everything on the screen comes from the API, including spots left, dates, the countdown and the state of the bottom button. Registration takes the entry fee through Razorpay (test mode), and registered users can upload a video entry. Signed-in users can post their own competition from the + tab (`POST /api/v1/competitions`).
 
 ## Running it
 
@@ -54,6 +54,7 @@ To deploy on Render, use `render.yaml`. Its settings are root directory `backend
 - **Uploads in MongoDB:** videos go to GridFS, because Render's disk is wiped on every restart. At real scale they belong in S3 or R2.
 - **Manual refresh:** the page never reloads on its own; you pull down to refresh. The spots count can be out of date until then, but the server always has the final say.
 - **Server time for deadlines:** the countdown uses the server's clock, and the server decides the phase.
+- **Posting competitions:** the server validates each post. Dates must run in order, registration must close in the future and submissions can't end before registration closes. There can't be more rewards than spots, and rewards can't grow down the list. The prize pool is the sum of the rewards, and the slug gets a random suffix so identical titles don't clash.
 
 ## Assumptions
 
@@ -61,6 +62,7 @@ To deploy on Render, use `render.yaml`. Its settings are root directory `backend
 - A user has one entry per competition, and re-uploading replaces it.
 - Registration and submission windows can overlap, as they do in the design.
 - The images are cropped from the design, and the videos are a sample clip.
+- Any signed-in user can post a competition, and it goes live immediately. Posted content is English only, so the Hindi view shows it in English.
 
 ## Next steps for production
 
@@ -69,5 +71,5 @@ To deploy on Render, use `render.yaml`. Its settings are root directory `backend
 - Referral credit applied at checkout.
 - Holds processed by a queue or worker instead of inside the API process.
 - Refresh tokens.
-- An admin panel for creating competitions.
+- Moderation or approval before a posted competition goes live, plus editing and cancelling.
 - End-to-end tests for the app.

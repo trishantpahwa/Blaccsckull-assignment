@@ -68,6 +68,7 @@ const competitionSchema = new Schema(
       targetUrl: String,
     },
     status: { type: String, enum: ['draft', 'published', 'cancelled'], default: 'draft', index: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User', index: true },
   },
   { timestamps: true },
 );

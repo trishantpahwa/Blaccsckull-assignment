@@ -4,8 +4,10 @@ import { notFound } from '../lib/errors';
 import { parseLang } from '../lib/i18n';
 import { optionalAuth, requireAuth } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
+import { validateBody } from '../middleware/validate';
 import { CompetitionModel } from '../models/Competition';
 import { ACTIVE_STATUSES, RegistrationModel } from '../models/Registration';
+import { createCompetition, createCompetitionSchema } from '../services/competitions';
 import { availabilityView, competitionDetailView, competitionSummaryView, registrationView } from '../services/competitionView';
 import { startRegistration } from '../services/registrations';
 
@@ -18,6 +20,11 @@ competitionsRouter.get('/', async (req, res) => {
   const competitions = await CompetitionModel.find(visible).sort({ 'schedule.registrationClosesAt': 1 }).limit(50).lean();
   const now = new Date();
   res.json({ serverTime: now, competitions: competitions.map((c) => competitionSummaryView(c, lang, now)) });
+});
+
+competitionsRouter.post('/', requireAuth, writeLimiter, validateBody(createCompetitionSchema), async (req, res) => {
+  const competition = await createCompetition(req.body, req.userId!);
+  res.status(201).json({ competition: competitionDetailView(competition, 'en') });
 });
 
 competitionsRouter.get('/:slug', optionalAuth, async (req, res) => {

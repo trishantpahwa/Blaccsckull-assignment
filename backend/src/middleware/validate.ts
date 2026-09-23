@@ -8,7 +8,9 @@ export function validateBody<T extends z.ZodType>(schema: T) {
     if (!result.success) {
       const first = result.error.issues[0];
       const field = first.path.join('.');
-      return next(badRequest('VALIDATION_ERROR', field ? `${field}: ${first.message}` : first.message));
+      // Cross-field rules already read as full sentences, so they don't need the field prefix.
+      const message = field && first.code !== 'custom' ? `${field}: ${first.message}` : first.message;
+      return next(badRequest('VALIDATION_ERROR', message));
     }
     req.body = result.data;
     next();

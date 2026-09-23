@@ -1,7 +1,9 @@
 import { request } from './client';
 import type {
+  CompetitionDetail,
   CompetitionResponse,
   CompetitionSummary,
+  NewCompetition,
   PaymentOrder,
   RazorpaySuccess,
   ReferralStats,
@@ -21,6 +23,8 @@ export const api = {
   competitions: (lang: Lang) =>
     request<{ serverTime: string; competitions: CompetitionSummary[] }>(`/competitions?lang=${lang}`),
   competition: (slug: string, lang: Lang) => request<CompetitionResponse>(`/competitions/${slug}?lang=${lang}`),
+  createCompetition: (body: NewCompetition) =>
+    request<{ competition: CompetitionDetail }>('/competitions', { method: 'POST', body }),
 
   register: (slug: string) =>
     request<{ registration: Registration; payment: PaymentOrder | null }>(`/competitions/${slug}/registrations`, {
