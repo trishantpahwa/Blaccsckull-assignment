@@ -4,6 +4,7 @@ import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { api } from '@/api/endpoints';
 import type { CompetitionSummary } from '@/api/types';
 import { useLanguage } from '@/context/LanguageContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { colors } from '@/theme';
 import { CompetitionCard } from './CompetitionCard';
 import { AppText } from './ui/AppText';
@@ -18,6 +19,7 @@ interface Props {
 export function CompetitionList({ filter, header }: Props) {
   const { t, lang } = useLanguage();
   const query = useQuery({ queryKey: ['competitions', lang], queryFn: () => api.competitions(lang) });
+  const pull = usePullToRefresh(query.refetch);
 
   if (query.isPending) {
     return (
@@ -46,7 +48,7 @@ export function CompetitionList({ filter, header }: Props) {
         </AppText>
       }
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => query.refetch()} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={colors.primary} />}
     />
   );
 }

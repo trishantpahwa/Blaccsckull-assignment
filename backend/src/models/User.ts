@@ -10,6 +10,7 @@ const userSchema = new Schema(
     referredBy: { type: Schema.Types.ObjectId, ref: 'User' },
     referralCount: { type: Number, default: 0, min: 0 },
     referralEarnings: { type: Number, default: 0, min: 0 },
+    savedCompetitions: { type: [{ type: Schema.Types.ObjectId, ref: 'Competition' }], default: [] },
   },
   { timestamps: true },
 );

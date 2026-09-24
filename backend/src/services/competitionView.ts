@@ -1,6 +1,6 @@
 import { env } from '../config/env';
 import { localize, type Lang } from '../lib/i18n';
-import { absoluteUrl } from '../lib/urls';
+import { absoluteUrl, competitionLink } from '../lib/urls';
 import type { Competition } from '../models/Competition';
 import type { Registration } from '../models/Registration';
 import { getLifecycle } from './lifecycle';
@@ -31,8 +31,10 @@ export function registrationView(r: RegistrationLike) {
           mimeType: r.submission.mimeType,
           size: r.submission.size,
           submittedAt: r.submission.submittedAt,
+          hidden: r.submission.hidden ?? false,
         }
       : null,
+    voteCount: r.voteCount ?? 0,
   };
 }
 
@@ -80,5 +82,6 @@ export function competitionDetailView(c: CompetitionLike, lang: Lang, now = new 
     disclaimer: c.disclaimer ? localize(c.disclaimer, lang) : null,
     ad: c.ad?.imageUrl ? { imageUrl: absoluteUrl(c.ad.imageUrl), targetUrl: c.ad.targetUrl ?? null } : null,
     referral: { rewardPerSignup: env.REFERRAL_REWARD },
+    shareUrl: competitionLink(c.slug),
   };
 }

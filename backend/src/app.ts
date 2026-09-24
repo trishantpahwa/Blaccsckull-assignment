@@ -10,6 +10,8 @@ import { logger } from './lib/logger';
 import { errorHandler, notFoundHandler } from './middleware/errors';
 import { authRouter } from './routes/auth';
 import { competitionsRouter } from './routes/competitions';
+import { entriesRouter } from './routes/entries';
+import { meRouter } from './routes/me';
 import { miscRouter } from './routes/misc';
 import { pagesRouter } from './routes/pages';
 import { registrationsRouter } from './routes/registrations';
@@ -53,6 +55,8 @@ export function createApp() {
   app.use('/api/v1/auth', authRouter);
   app.use('/api/v1/competitions', competitionsRouter);
   app.use('/api/v1/registrations', registrationsRouter);
+  app.use('/api/v1/entries', entriesRouter);
+  app.use('/api/v1/me', meRouter);
   app.use('/api/v1', miscRouter);
 
   app.use(notFoundHandler);

@@ -8,3 +8,7 @@ export function absoluteUrl(path: string | null | undefined) {
 export function referralLink(code: string) {
   return `${env.PUBLIC_BASE_URL}/r/${code}`;
 }
+
+export function competitionLink(slug: string) {
+  return `${env.PUBLIC_BASE_URL}/c/${slug}`;
+}

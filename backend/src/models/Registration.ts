@@ -13,6 +13,8 @@ const submissionSchema = new Schema(
     mimeType: { type: String, required: true },
     size: { type: Number, required: true },
     submittedAt: { type: Date, required: true },
+    // Entrants can keep their video out of the public showcase; judges still see it.
+    hidden: { type: Boolean, default: false },
   },
   { _id: false },
 );
@@ -28,6 +30,8 @@ const registrationSchema = new Schema(
     razorpayPaymentId: { type: String },
     confirmedAt: { type: Date },
     submission: submissionSchema,
+    // Denormalised from the votes collection so the leaderboard is a single indexed sort.
+    voteCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
 );
@@ -39,6 +43,7 @@ registrationSchema.index(
 registrationSchema.index({ razorpayOrderId: 1 }, { unique: true, sparse: true });
 registrationSchema.index({ status: 1, holdExpiresAt: 1 });
 registrationSchema.index({ user: 1, createdAt: -1 });
+registrationSchema.index({ competition: 1, status: 1, voteCount: -1, 'submission.submittedAt': 1 });
 
 export type Registration = InferSchemaType<typeof registrationSchema>;
 export type RegistrationDoc = HydratedDocument<Registration>;

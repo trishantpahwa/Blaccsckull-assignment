@@ -7,8 +7,10 @@ import { writeLimiter } from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
 import { CompetitionModel } from '../models/Competition';
 import { ACTIVE_STATUSES, RegistrationModel } from '../models/Registration';
+import { UserModel } from '../models/User';
 import { createCompetition, createCompetitionSchema } from '../services/competitions';
 import { availabilityView, competitionDetailView, competitionSummaryView, registrationView } from '../services/competitionView';
+import { ENTRY_SORTS, listEntries, type EntrySort } from '../services/entries';
 import { startRegistration } from '../services/registrations';
 
 export const competitionsRouter = Router();
@@ -33,7 +35,9 @@ competitionsRouter.get('/:slug', optionalAuth, async (req, res) => {
   if (!competition) throw notFound('Competition not found');
 
   let registration = null;
+  let saved = false;
   if (req.userId) {
+    saved = Boolean(await UserModel.exists({ _id: req.userId, savedCompetitions: competition._id }));
     // Prefer the active entry; otherwise show the latest one so states like refund_due are visible.
     registration =
       (await RegistrationModel.findOne({ competition: competition._id, user: req.userId, status: { $in: ACTIVE_STATUSES } }).lean()) ??
@@ -45,7 +49,7 @@ competitionsRouter.get('/:slug', optionalAuth, async (req, res) => {
   res.json({
     serverTime: now,
     competition: competitionDetailView(competition, lang, now),
-    viewer: req.userId ? { registration: registration ? registrationView(registration) : null } : null,
+    viewer: req.userId ? { registration: registration ? registrationView(registration) : null, saved } : null,
   });
 });
 
@@ -76,4 +80,29 @@ competitionsRouter.post('/:slug/registrations', requireAuth, writeLimiter, async
         }
       : null,
   });
+});
+
+competitionsRouter.get('/:slug/entries', optionalAuth, async (req, res) => {
+  const sort: EntrySort = ENTRY_SORTS.includes(req.query.sort as EntrySort) ? (req.query.sort as EntrySort) : 'top';
+  const result = await listEntries(String(req.params.slug), req.userId, sort);
+  res.set('Cache-Control', 'private, no-cache');
+  res.json({ serverTime: new Date(), sort, ...result });
+});
+
+async function setSaved(slug: string, userId: string, saved: boolean) {
+  const competition = await CompetitionModel.findOne({ slug, ...visible }, { _id: 1 }).lean();
+  if (!competition) throw notFound('Competition not found');
+  await UserModel.updateOne(
+    { _id: userId },
+    saved ? { $addToSet: { savedCompetitions: competition._id } } : { $pull: { savedCompetitions: competition._id } },
+  );
+  return { saved };
+}
+
+competitionsRouter.put('/:slug/save', requireAuth, writeLimiter, async (req, res) => {
+  res.json(await setSaved(String(req.params.slug), req.userId!, true));
+});
+
+competitionsRouter.delete('/:slug/save', requireAuth, writeLimiter, async (req, res) => {
+  res.json(await setSaved(String(req.params.slug), req.userId!, false));
 });

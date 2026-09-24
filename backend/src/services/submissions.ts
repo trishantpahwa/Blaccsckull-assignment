@@ -1,4 +1,4 @@
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import mongoose, { Types } from 'mongoose';
 import multer, { type StorageEngine } from 'multer';
 import { badRequest } from '../lib/errors';
@@ -52,4 +52,65 @@ export async function deleteSubmissionFile(fileId: Types.ObjectId) {
   } catch {
     // Already gone; nothing to clean up.
   }
+}
+
+/**
+ * Parses a single-range `Range` header against a file of `size` bytes. Returns null to serve the
+ * whole file (no header, or a multi-range request we don't support), or 'unsatisfiable'.
+ */
+export function parseRange(header: string | undefined, size: number): { start: number; end: number } | 'unsatisfiable' | null {
+  const match = header && /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!match) return null;
+  const [, rawStart, rawEnd] = match;
+  if (!rawStart && !rawEnd) return null;
+
+  let start: number;
+  let end: number;
+  if (!rawStart) {
+    // Suffix range: the last N bytes.
+    const length = Number(rawEnd);
+    if (length === 0) return 'unsatisfiable';
+    start = Math.max(size - length, 0);
+    end = size - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd ? Math.min(Number(rawEnd), size - 1) : size - 1;
+  }
+  if (start >= size || start > end) return 'unsatisfiable';
+  return { start, end };
+}
+
+interface StoredVideo {
+  fileId: Types.ObjectId;
+  mimeType: string;
+  size: number;
+  fileName: string;
+}
+
+// Streams a GridFS video with byte-range support; iOS players refuse to play MP4s without it.
+export function streamSubmission(req: Request, res: Response, video: StoredVideo, cacheControl: string) {
+  const range = parseRange(req.headers.range, video.size);
+  res.set({
+    'Content-Type': video.mimeType,
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': cacheControl,
+    'Content-Disposition': `inline; filename="${encodeURIComponent(video.fileName)}"`,
+  });
+
+  if (range === 'unsatisfiable') {
+    res.status(416).set('Content-Range', `bytes */${video.size}`).end();
+    return;
+  }
+
+  const { start, end } = range ?? { start: 0, end: video.size - 1 };
+  if (range) {
+    res.status(206).set('Content-Range', `bytes ${start}-${end}/${video.size}`);
+  }
+  res.set('Content-Length', String(end - start + 1));
+
+  submissionsBucket()
+    // GridFS treats `end` as exclusive.
+    .openDownloadStream(video.fileId, { start, end: end + 1 })
+    .on('error', () => res.destroy())
+    .pipe(res);
 }

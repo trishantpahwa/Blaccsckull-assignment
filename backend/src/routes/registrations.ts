@@ -12,7 +12,7 @@ import { registrationView } from '../services/competitionView';
 import { isSubmissionWindowOpen } from '../services/lifecycle';
 import { paymentGateway } from '../services/paymentGateway';
 import { confirmPayment } from '../services/registrations';
-import { deleteSubmissionFile, submissionUpload, submissionsBucket } from '../services/submissions';
+import { deleteSubmissionFile, streamSubmission, submissionUpload } from '../services/submissions';
 
 export const registrationsRouter = Router();
 
@@ -74,14 +74,13 @@ registrationsRouter.post(
     const previous = await RegistrationModel.findOneAndUpdate(
       { _id: req.params.id, user: req.userId, status: 'confirmed' },
       {
+        // Field-level sets keep the entrant's showcase visibility choice across re-uploads.
         $set: {
-          submission: {
-            fileId: file.id,
-            fileName: file.originalname,
-            mimeType: file.mimetype,
-            size: file.size,
-            submittedAt: new Date(),
-          },
+          'submission.fileId': file.id,
+          'submission.fileName': file.originalname,
+          'submission.mimeType': file.mimetype,
+          'submission.size': file.size,
+          'submission.submittedAt': new Date(),
         },
       },
       { returnDocument: 'before' },
@@ -100,15 +99,18 @@ registrationsRouter.post(
 registrationsRouter.get('/:id/submission/file', requireAuth, async (req, res) => {
   const registration = await loadOwnRegistration(req);
   if (!registration.submission) throw notFound('No submission uploaded yet');
+  streamSubmission(req, res, registration.submission, 'private, no-store');
+});
 
-  const { fileId, mimeType, size, fileName } = registration.submission;
-  res.set({
-    'Content-Type': mimeType,
-    'Content-Length': String(size),
-    'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
-  });
-  submissionsBucket()
-    .openDownloadStream(fileId)
-    .on('error', () => res.destroy())
-    .pipe(res);
+const visibilitySchema = z.object({ hidden: z.boolean() });
+
+// Lets an entrant pull their video out of the public showcase (or put it back).
+registrationsRouter.patch('/:id/submission', requireAuth, writeLimiter, validateBody(visibilitySchema), async (req, res) => {
+  const updated = await RegistrationModel.findOneAndUpdate(
+    { _id: req.params.id, user: req.userId, 'submission.fileId': { $exists: true } },
+    { $set: { 'submission.hidden': req.body.hidden } },
+    { returnDocument: 'after' },
+  );
+  if (!updated) throw notFound('No submission uploaded yet');
+  res.json({ registration: registrationView(updated) });
 });

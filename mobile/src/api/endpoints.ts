@@ -3,6 +3,9 @@ import type {
   CompetitionDetail,
   CompetitionResponse,
   CompetitionSummary,
+  EntriesResponse,
+  EntrySort,
+  MyRegistration,
   NewCompetition,
   PaymentOrder,
   RazorpaySuccess,
@@ -10,6 +13,7 @@ import type {
   Registration,
   Testimonial,
   User,
+  VoteState,
 } from './types';
 import type { Lang } from '@/i18n';
 
@@ -37,6 +41,22 @@ export const api = {
       method: 'POST',
       body: form,
     }),
+
+  setSubmissionHidden: (registrationId: string, hidden: boolean) =>
+    request<{ registration: Registration }>(`/registrations/${registrationId}/submission`, {
+      method: 'PATCH',
+      body: { hidden },
+    }),
+
+  entries: (slug: string, sort: EntrySort) => request<EntriesResponse>(`/competitions/${slug}/entries?sort=${sort}`),
+  vote: (entryId: string, on: boolean) =>
+    request<VoteState>(`/entries/${entryId}/vote`, { method: on ? 'PUT' : 'DELETE' }),
+
+  setSaved: (slug: string, saved: boolean) =>
+    request<{ saved: boolean }>(`/competitions/${slug}/save`, { method: saved ? 'PUT' : 'DELETE' }),
+  savedCompetitions: (lang: Lang) =>
+    request<{ serverTime: string; competitions: CompetitionSummary[] }>(`/me/saved?lang=${lang}`),
+  myRegistrations: (lang: Lang) => request<{ serverTime: string; items: MyRegistration[] }>(`/me/registrations?lang=${lang}`),
 
   testimonials: (lang: Lang) => request<{ testimonials: Testimonial[] }>(`/testimonials?lang=${lang}`),
   referrals: () => request<ReferralStats>('/referrals/me'),

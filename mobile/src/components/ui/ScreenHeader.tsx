@@ -1,12 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useLanguage } from '@/context/LanguageContext';
 import { colors } from '@/theme';
 import { AppText } from './AppText';
 import { LanguageToggle } from './LanguageToggle';
 
-export function ScreenHeader({ title, showBack = true }: { title?: string; showBack?: boolean }) {
+interface Props {
+  title?: string;
+  showBack?: boolean;
+  actions?: ReactNode;
+}
+
+export function ScreenHeader({ title, showBack = true, actions }: Props) {
   const { t } = useLanguage();
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/competitions'));
@@ -25,7 +32,10 @@ export function ScreenHeader({ title, showBack = true }: { title?: string; showB
           {title}
         </AppText>
       )}
-      <LanguageToggle />
+      <View style={styles.actions}>
+        {actions}
+        <LanguageToggle />
+      </View>
     </View>
   );
 }
@@ -40,4 +50,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   back: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
 });

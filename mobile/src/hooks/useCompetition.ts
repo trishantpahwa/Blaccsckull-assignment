@@ -26,6 +26,9 @@ export function useInvalidateCompetition(slug: string) {
   return useCallback(async () => {
     // The list shows spots too, so mark it stale; it refetches the next time it is opened.
     queryClient.invalidateQueries({ queryKey: ['competitions'], refetchType: 'none' });
+    // Same for the profile dashboard and the entries showcase, which reflect registrations and uploads.
+    queryClient.invalidateQueries({ queryKey: ['me'], refetchType: 'none' });
+    queryClient.invalidateQueries({ queryKey: ['entries', slug] });
     await queryClient.invalidateQueries({ queryKey: competitionKey(slug) });
   }, [queryClient, slug]);
 }

@@ -18,6 +18,7 @@ export interface Lifecycle {
   phase: Phase;
   registrationOpen: boolean;
   submissionOpen: boolean;
+  votingOpen: boolean;
   isFull: boolean;
   nextDeadline: { kind: DeadlineKind; at: string } | null;
 }
@@ -66,6 +67,7 @@ export interface CompetitionDetail extends CompetitionSummary {
   disclaimer: string | null;
   ad: { imageUrl: string; targetUrl: string | null } | null;
   referral: { rewardPerSignup: number };
+  shareUrl: string;
 }
 
 export type RegistrationStatus = 'pending_payment' | 'confirmed' | 'expired' | 'refund_due' | 'cancelled';
@@ -77,13 +79,14 @@ export interface Registration {
   holdExpiresAt: string | null;
   confirmedAt: string | null;
   razorpayOrderId: string | null;
-  submission: { fileName: string; mimeType: string; size: number; submittedAt: string } | null;
+  submission: { fileName: string; mimeType: string; size: number; submittedAt: string; hidden: boolean } | null;
+  voteCount: number;
 }
 
 export interface CompetitionResponse {
   serverTime: string;
   competition: CompetitionDetail;
-  viewer: { registration: Registration | null } | null;
+  viewer: { registration: Registration | null; saved: boolean } | null;
 }
 
 export interface PaymentOrder {
@@ -138,4 +141,37 @@ export interface NewCompetition {
   schedule: CompetitionDetail['schedule'];
   judgingParameters: string[];
   rules: string[];
+}
+
+export type EntrySort = 'top' | 'new';
+
+export interface Entry {
+  id: string;
+  entrant: { name: string; avatarUrl: string | null };
+  submittedAt: string;
+  voteCount: number;
+  rank: number | null;
+  viewerHasVoted: boolean;
+  isMine: boolean;
+  hidden: boolean;
+  videoUrl: string;
+}
+
+export interface EntriesResponse {
+  serverTime: string;
+  sort: EntrySort;
+  total: number;
+  votingOpen: boolean;
+  votingClosesAt: string;
+  entries: Entry[];
+}
+
+export interface VoteState {
+  voteCount: number;
+  viewerHasVoted: boolean;
+}
+
+export interface MyRegistration {
+  registration: Registration;
+  competition: CompetitionSummary;
 }

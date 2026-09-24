@@ -1,11 +1,13 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdSlot } from '@/components/competition/AdSlot';
 import { CompetitionHeader } from '@/components/competition/CompetitionHeader';
 import { CountdownBanner } from '@/components/competition/CountdownBanner';
 import { Disclaimer } from '@/components/competition/Disclaimer';
+import { EntriesShowcase } from '@/components/competition/EntriesShowcase';
 import { ImportantDates } from '@/components/competition/ImportantDates';
 import { InfoTabs } from '@/components/competition/InfoTabs';
 import { JudgeCard } from '@/components/competition/JudgeCard';
@@ -23,8 +25,11 @@ import { VideoModal } from '@/components/ui/VideoModal';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useCompetition, useInvalidateCompetition } from '@/hooks/useCompetition';
+import { useSaveCompetition } from '@/hooks/useEntries';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRegistrationFlow } from '@/hooks/useRegistrationFlow';
 import { useNow } from '@/hooks/useServerClock';
+import { format } from '@/i18n';
 import { getCtaState } from '@/lib/cta';
 import { colors } from '@/theme';
 
@@ -34,11 +39,13 @@ export default function CompetitionDetailsScreen() {
   const { user } = useAuth();
   const query = useCompetition(slug);
   const refresh = useInvalidateCompetition(slug);
+  const pull = usePullToRefresh(refresh);
   const now = useNow();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const registration = query.data?.viewer?.registration ?? null;
   const flow = useRegistrationFlow(slug, registration?.id ?? null);
+  const save = useSaveCompetition(slug);
 
   const prefill = useMemo(() => ({ name: user?.name, email: user?.email }), [user]);
 
@@ -55,6 +62,28 @@ export default function CompetitionDetailsScreen() {
   const { competition } = query.data;
   const cta = getCtaState({ competition, registration, loggedIn: Boolean(user), now, t });
 
+  const saved = query.data.viewer?.saved ?? false;
+  const toggleSave = () => (user ? save.mutate(!saved) : router.push('/login'));
+  const share = () =>
+    Share.share({ message: format(t.shareCompetition, { title: competition.title, link: competition.shareUrl }) }).catch(() => {});
+
+  const headerActions = (
+    <>
+      <Pressable onPress={share} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.share}>
+        <Ionicons name="share-social-outline" size={22} color={colors.text} />
+      </Pressable>
+      <Pressable
+        onPress={toggleSave}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={saved ? t.unsaveCompetition : t.saveCompetition}
+        accessibilityState={{ selected: saved }}
+      >
+        <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={saved ? colors.primary : colors.text} />
+      </Pressable>
+    </>
+  );
+
   const onCtaPress = () => {
     if (cta.action === 'login') router.push('/login');
     else if (cta.action === 'register' || cta.action === 'pay') flow.register();
@@ -63,15 +92,16 @@ export default function CompetitionDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScreenHeader />
+      <ScreenHeader actions={headerActions} />
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={refresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={colors.primary} />}
       >
         <CompetitionHeader competition={competition} registration={registration} />
         <JudgeCard judge={competition.judge} onPlayIntro={setVideoUrl} />
         <CountdownBanner lifecycle={competition.lifecycle} spotsLeft={competition.spotsLeft} />
         <ImportantDates schedule={competition.schedule} />
+        <EntriesShowcase competition={competition} now={now} onOpen={() => router.push(`/competitions/${slug}/entries`)} />
         <PreviousWinners winners={competition.previousWinners} onPlay={setVideoUrl} />
         <InfoTabs competition={competition} />
         <RewardsList rewards={competition.rewards} />

@@ -26,6 +26,7 @@ export interface Lifecycle {
   phase: Phase;
   registrationOpen: boolean;
   submissionOpen: boolean;
+  votingOpen: boolean;
   isFull: boolean;
   nextDeadline: { kind: DeadlineKind; at: Date } | null;
 }
@@ -45,16 +46,22 @@ export function isSubmissionWindowOpen(schedule: Schedule, now: Date) {
   return schedule.submissionStartsAt <= now && now < schedule.submissionEndsAt;
 }
 
+// People's Choice voting runs from the first possible submission until results are out.
+export function isVotingWindowOpen(schedule: Schedule, now: Date) {
+  return schedule.submissionStartsAt <= now && now < schedule.resultAt;
+}
+
 export function getLifecycle(c: LifecycleInput, now = new Date()): Lifecycle {
   const s = c.schedule;
   const isFull = c.bookedCount >= c.capacity;
 
   if (c.status === 'cancelled') {
-    return { phase: 'cancelled', registrationOpen: false, submissionOpen: false, isFull, nextDeadline: null };
+    return { phase: 'cancelled', registrationOpen: false, submissionOpen: false, votingOpen: false, isFull, nextDeadline: null };
   }
 
   const registrationOpen = isRegistrationWindowOpen(s, now);
   const submissionOpen = isSubmissionWindowOpen(s, now);
+  const votingOpen = isVotingWindowOpen(s, now);
 
   let phase: Phase;
   let nextDeadline: Lifecycle['nextDeadline'];
@@ -81,5 +88,5 @@ export function getLifecycle(c: LifecycleInput, now = new Date()): Lifecycle {
     nextDeadline = null;
   }
 
-  return { phase, registrationOpen, submissionOpen, isFull, nextDeadline };
+  return { phase, registrationOpen, submissionOpen, votingOpen, isFull, nextDeadline };
 }

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { env } from './config/env';
 import { connectDb, disconnectDb } from './db';
@@ -5,6 +6,8 @@ import { CompetitionModel } from './models/Competition';
 import { ACTIVE_STATUSES, RegistrationModel } from './models/Registration';
 import { TestimonialModel } from './models/Testimonial';
 import { UserModel } from './models/User';
+import { VoteModel } from './models/Vote';
+import { submissionsBucket } from './services/submissions';
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -166,16 +169,111 @@ const testimonials = [
   },
 ];
 
+// Showcase entrants for the classical dance competition, and who votes for whom.
+// The votes give 4, 3, 3, 1 and 0, so the leaderboard shows a tie for second place.
+const SHOWCASE_ENTRANTS = ['Ananya Iyer', 'Vikram Joshi', 'Meera Pillai', 'Dev Kapoor', 'Tara Singh'];
+const SHOWCASE_VOTES: [voter: number, entrant: number][] = [
+  [1, 0], [2, 0], [3, 0], [4, 0],
+  [0, 1], [2, 1], [4, 1],
+  [0, 2], [1, 2], [3, 2],
+  [0, 3],
+];
+
+async function uploadVideo(video: Buffer, fileName: string) {
+  const upload = submissionsBucket().openUploadStream(fileName, { metadata: { contentType: 'video/mp4', seeded: true } });
+  await new Promise<void>((resolve, reject) => upload.on('finish', () => resolve()).on('error', reject).end(video));
+  return upload.id;
+}
+
+async function seedShowcase(slug: string) {
+  const competition = await CompetitionModel.findOne({ slug });
+  if (!competition) return;
+
+  let video: Buffer;
+  try {
+    const res = await fetch(SAMPLE_VIDEO);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    video = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    console.warn(`Skipped showcase entries: could not download the sample video (${(err as Error).message})`);
+    return;
+  }
+
+  const entryIds: string[] = [];
+  const userIds: string[] = [];
+  for (const [i, name] of SHOWCASE_ENTRANTS.entries()) {
+    const email = `showcase${i + 1}@feedants.com`;
+    const user =
+      (await UserModel.findOne({ email })) ??
+      (await UserModel.create({
+        name,
+        email,
+        // Nobody logs in as these accounts.
+        passwordHash: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10),
+        referralCode: `SHOW${i + 1}${crypto.randomBytes(2).toString('hex').toUpperCase()}`,
+      }));
+
+    let registration = await RegistrationModel.findOne({ competition: competition._id, user: user._id, status: 'confirmed' });
+    if (!registration) {
+      const fileId = await uploadVideo(video, `${name.split(' ')[0].toLowerCase()}-kathak.mp4`);
+      registration = await RegistrationModel.create({
+        competition: competition._id,
+        user: user._id,
+        status: 'confirmed',
+        amount: 0,
+        confirmedAt: new Date(),
+        submission: {
+          fileId,
+          fileName: `${name.split(' ')[0].toLowerCase()}-kathak.mp4`,
+          mimeType: 'video/mp4',
+          size: video.length,
+          submittedAt: new Date(Date.now() - (SHOWCASE_ENTRANTS.length - i) * HOUR),
+        },
+      });
+    }
+    entryIds.push(registration._id.toString());
+    userIds.push(user._id.toString());
+  }
+
+  for (const [voter, entrant] of SHOWCASE_VOTES) {
+    await VoteModel.updateOne(
+      { registration: entryIds[entrant], user: userIds[voter] },
+      { $setOnInsert: { competition: competition._id } },
+      { upsert: true },
+    );
+  }
+  // Recount rather than increment, so re-running the seed never inflates the totals.
+  for (const id of entryIds) {
+    await RegistrationModel.updateOne({ _id: id }, { $set: { voteCount: await VoteModel.countDocuments({ registration: id }) } });
+  }
+  console.log(`Seeded ${entryIds.length} showcase entries and ${SHOWCASE_VOTES.length} votes`);
+}
+
 async function seed() {
   await connectDb(env.MONGODB_URI);
-  await Promise.all([CompetitionModel.syncIndexes(), RegistrationModel.syncIndexes(), UserModel.syncIndexes()]);
+  await Promise.all([
+    CompetitionModel.syncIndexes(),
+    RegistrationModel.syncIndexes(),
+    UserModel.syncIndexes(),
+    VoteModel.syncIndexes(),
+  ]);
 
   const now = Date.now();
   const reset = process.argv.includes('--reset');
 
   if (reset) {
     await RegistrationModel.deleteMany({});
-    console.log('Cleared registrations');
+    await VoteModel.deleteMany({});
+    await submissionsBucket()
+      .drop()
+      .catch(() => {});
+    console.log('Cleared registrations, votes and uploaded videos');
+  }
+
+  const classical = classicalDance(now);
+  await CompetitionModel.updateOne({ slug: classical.slug }, { $set: classical }, { upsert: true, runValidators: true });
+  if (!process.argv.includes('--no-showcase')) {
+    await seedShowcase(classical.slug);
   }
 
   for (const competition of [classicalDance(now), ...otherCompetitions(now)]) {
